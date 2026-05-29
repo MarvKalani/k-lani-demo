@@ -1,0 +1,9 @@
+bin/*
+!bin/k-lani-server
+!bin/k-lani-quic-server
+!bin/thundering_herd_concert_bench
+!bin/trading_workstation
+hft-data/*
+reports/*
+!reports/*.md
+!reports/SHA256SUMS.txt

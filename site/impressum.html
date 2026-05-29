@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Impressum - k-lani preview</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #07090d;
+            --panel: #101620;
+            --line: #253142;
+            --text: #eef4fb;
+            --muted: #9cafc4;
+            --green: #55d17a;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 16px/1.7 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        main {
+            width: min(900px, calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 40px 0 56px;
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+        a { color: var(--text); }
+        .back {
+            text-decoration: none;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 10px 14px;
+            background: #0c121a;
+        }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 24px;
+        }
+        h1, h2, h3 { letter-spacing: 0; }
+        h1 { margin: 0; font-size: clamp(32px, 5vw, 46px); }
+        h2 { margin: 28px 0 10px; font-size: 22px; }
+        h3 { margin: 18px 0 8px; font-size: 17px; }
+        p { margin: 0 0 14px; color: var(--muted); }
+        strong { color: var(--text); }
+        footer {
+            margin-top: 28px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="topbar">
+            <h1>Impressum</h1>
+            <a class="back" href="index.html">Zurück zur Startseite</a>
+        </div>
+
+        <section class="card">
+            <h2>Angaben gemäß § 5 TMG</h2>
+            <p>
+                <strong>Marvin Kalani</strong><br>
+                Zum Bruch 3a<br>
+                28816 Stuhr<br>
+                Deutschland
+            </p>
+
+            <h2>Kontakt</h2>
+            <p>E-Mail: <a href="mailto:support@kalanis.de">support@kalanis.de</a></p>
+
+            <h2>Inhaltlich verantwortlich nach § 18 Abs. 2 MStV</h2>
+            <p>Marvin Kalani, Anschrift wie oben.</p>
+
+            <h2>Haftungsausschluss</h2>
+            <h3>Haftung für Inhalte</h3>
+            <p>Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.</p>
+            <p>Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen Gesetzen bleiben hiervon unberührt. Eine diesbezügliche Haftung ist jedoch erst ab dem Zeitpunkt der Kenntnis einer konkreten Rechtsverletzung möglich. Bei Bekanntwerden von entsprechenden Rechtsverletzungen werden wir diese Inhalte umgehend entfernen.</p>
+
+            <h3>Haftung für Links</h3>
+            <p>Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.</p>
+
+            <h3>Urheberrecht</h3>
+            <p>Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des jeweiligen Autors bzw. Erstellers.</p>
+        </section>
+
+        <footer>
+            Diese Angaben wurden aus der bestehenden marvins.app-Rechtsidentität übernommen und für die k-lani-Preview als statische Seite bereitgestellt.
+        </footer>
+    </main>
+</body>
+</html>
