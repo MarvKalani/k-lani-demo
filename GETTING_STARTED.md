@@ -44,6 +44,94 @@ docker compose down -v
 - Indexed equality is explicit. If you query an unindexed field as an index,
   k-lani returns `FieldNotIndexed` instead of silently pretending it is cheap.
 
+## If You Come From FoxPro
+
+FoxPro's heart was not only tables; it was work areas, current order, `SEEK`,
+and cursor-style walking:
+
+```foxpro
+SELECT customers
+SET ORDER TO name
+SEEK "Marvin"
+SCAN WHILE Name = "Marvin"
+    * work with the current row
+ENDSCAN
+```
+
+k-lani keeps the same mechanical idea, but makes the hidden work-area state
+explicit on the wire:
+
+| FoxPro idea | k-lani equivalent |
+| :--- | :--- |
+| `SELECT customers` | `OpenTable("customers")` returns a numeric table handle for this session |
+| `SET ORDER TO name` | choose the indexed field explicitly with `SeekByField`, `QueryIntersect`, `Scan`, `Fetch`, or `Stream` |
+| `SEEK "Marvin"` | `SeekByField(handle, "name", encode_fixed_string("Marvin"), field_mask)` |
+| `SCAN WHILE Name = "Marvin"` | start a filtered `Scan`/`Stream` and keep asking for pages until the cursor ends |
+| current row pointer | record id plus returned row bytes; updates use `Lock` -> `Replace`/`Delete` to commit, or `Unlock` to cancel |
+| selected fields in a browse/grid | `field_mask` projection so the server can skip decoding fields you did not ask for |
+
+There is no server command called `SetOrder` today on purpose. In FoxPro,
+`SET ORDER TO name` mutates the current work-area state: the next `SEEK` or
+`SCAN` depends on that hidden session state. k-lani's wire protocol keeps that
+choice inside each command instead. That makes requests replayable, easier to
+audit, easier to route through clients, and harder to accidentally run against
+the wrong order.
+
+An SDK can still expose FoxPro-flavored sugar safely. It would just remember a
+client-side `current_order = "name"` and translate `seek("Marvin")` into
+`SeekByField(handle, "name", ...)`. The engine stays bare-metal and explicit;
+the convenience layer can feel FoxPro-like.
+
+## Cursor Model
+
+k-lani has cursor concepts, but they are split by purpose instead of being one
+mutable global record pointer.
+
+### `Scan` / `ScanNext`: page cursor token
+
+`Scan` takes a table handle, a binary filter, a `page_size`, and an optional
+`limit`. The server evaluates the filter, returns the first page, and returns a
+`cursor_token` only when more rows are waiting. `ScanNext(cursor_token)` returns
+the next page for the same session. When the final page is returned, the token
+is gone and `cursor_token` is `None`.
+
+That is the closest wire-level equivalent to:
+
+```foxpro
+SCAN WHILE Name = "Marvin"
+    * page through matching rows
+ENDSCAN
+```
+
+The important details are:
+
+- `ScanNext` does not start a new query. It only continues an existing `Scan`.
+- The token is bound to the session that opened it.
+- A bad, expired, or cross-session token returns `InvalidCursor`.
+- `Scan` is useful for simple page-by-page reads, but it may materialize the
+  matching records before paging them back.
+
+### `Fetch`: stateless offset/limit page
+
+`Fetch` takes a query shape plus `limit` and `offset`. It prepares the matching
+row numbers for that request and returns exactly that page. Use it when a UI
+grid wants page 1, page 2, page 3 without keeping a server cursor open.
+
+### `Stream` / `StreamNext` / `StreamClose`: long-lived query cursor
+
+`Stream` prepares a query once and returns a numeric `cursor_id`. `StreamNext`
+then materializes the next page from that prepared row list. `StreamClose`
+releases it. This is the better fit for a FoxPro-like browse cursor or a long
+client iteration because the server keeps the prepared row ids and projection
+state until the stream ends or idles out.
+
+### `RegisterCursor` / `InvokeCursorFilter`: Wasm row filter
+
+This pair is unfortunately named from a FoxPro perspective. It is not the table
+navigation cursor. `RegisterCursor` registers a Wasm filter function and returns
+a `cursor_id`; `InvokeCursorFilter` asks that Wasm function whether one encoded
+row is accepted. Think "registered executable row filter", not `SCAN` state.
+
 ## Create a Table Schema
 
 For the server path, keep a YAML sidecar named after the table, for example
@@ -65,6 +153,7 @@ fields:
     length: 80
     required: true
     searchable: true
+    index: non_unique
   - name: city
     type: fixed_string
     length: 40
@@ -96,6 +185,7 @@ fn open_or_create_customers(dir: &Path) -> Result<Table> {
 
     let indexes = [
         SecondaryIndexSpec { field_idx: 0, unique: true },  // customer_no
+        SecondaryIndexSpec { field_idx: 1, unique: false }, // name
         SecondaryIndexSpec { field_idx: 2, unique: false }, // city
         SecondaryIndexSpec { field_idx: 4, unique: false }, // status
     ];
@@ -196,9 +286,19 @@ Important width rules:
 
 ## Query Shapes
 
-k-lani queries are intentionally explicit. That makes them easier to optimize
-than free-form SQL text because the engine receives typed values, known field
-slots, known indexes, and a bounded result shape.
+k-lani queries are intentionally explicit. In a general SQL database, an
+ad-hoc query normally goes through a parser, analyzer/rewrite step, planner,
+optimizer, and executor. PostgreSQL is very good at that, and prepared
+statements can cache parts of the work, but internally the executor still ends
+up doing the familiar storage operations: sequential scans, index scans,
+bitmap intersections, projections, cursors, locks, and updates.
+
+k-lani starts one layer lower. The client sends the already-shaped operation:
+`SeekByField`, `QueryIntersect`, `Scan`, `Fetch`, `Stream`, `Lock`, `Replace`.
+There is no SQL interpreter in the hot path that has to rediscover intent from
+text. That is what "bare metal" means here: PostgreSQL may ultimately do a
+similar physical operation internally; k-lani asks the caller to name that
+operation directly.
 
 | SQL thought | k-lani shape |
 | :--- | :--- |
@@ -206,7 +306,7 @@ slots, known indexes, and a bounded result shape.
 | `SELECT * FROM customers WHERE customer_no = ?` | `SeekByField` on the indexed `customer_no` field |
 | `SELECT customer_no, name FROM customers WHERE status = 1 LIMIT 64` | `SeekByField` or predicate seek with a projection/field mask |
 | `SELECT * FROM seats WHERE is_booked = 0 AND rank = 3 LIMIT 64` | indexed equality on `is_booked`, indexed equality on `rank`, intersect candidate ids, then seek projected rows |
-| `UPDATE customers SET status = 0 WHERE id = ?` | `Lock` -> `SetField`/`Replace` -> WAL commit -> unlock |
+| `UPDATE customers SET status = 0 WHERE id = ?` | `Lock` -> `SetField`/`Replace` -> WAL commit and lock release |
 
 Why this is optimizable:
 
@@ -218,10 +318,64 @@ Why this is optimizable:
   filtered nor returned.
 - Large result sets can be rejected or paged instead of accidentally materialized.
 
-The server command set includes `OpenTable`, `CloseTable`, `GetSchema`, `Seek`,
-`SeekByField`, `SeekByPredicate`, `Lock`, `Unlock`, `Replace`, `Append`,
-`Delete`, `Scan`, `ScanNext`, `BatchCommit`, `RegisterCursor`,
-`InvokeCursorFilter`, and `Disconnect`.
+## Server Command Reference
+
+The TCP/WebTransport protocol is a binary command protocol. Clients do not send
+SQL text; they send one of these commands with typed bytes.
+
+### Session and table commands
+
+| Command | What it does | FoxPro analogy |
+| :--- | :--- | :--- |
+| `Handshake` | Opens the wire session, checks protocol version/auth, and returns the session id. | Start a connection/session |
+| `OpenTable` | Opens a named table and returns a handle used by later commands. | `SELECT customers` / open work area |
+| `CloseTable` | Releases a handle for this session. | close work area |
+| `GetSchema` | Returns table metadata: field names, type tags, lengths, required flags, indexes, labels. | `AFIELDS()` / structure introspection |
+| `Disconnect` | Releases the session's handles and server-side session state. | close connection |
+
+### Point read and indexed query commands
+
+| Command | What it does | Use it when |
+| :--- | :--- | :--- |
+| `Seek` | Reads one row by UUIDv7 record id. Returns `NotFound` when the row is missing or deleted. | You already have the record id. |
+| `SeekByField` | Uses one indexed schema field and one encoded value. Returns rows projected by `field_mask`. | FoxPro `SET ORDER TO name` + `SEEK "Marvin"`. |
+| `SeekByPredicate` | Evaluates a binary predicate against indexed/filterable fields and returns projected rows. | You have a structured `WHERE` condition, not just one key. |
+| `QueryIntersect` | Intersects two indexed equality lookups with a hard result limit. | Hot-path `WHERE a = ? AND b = ? LIMIT n`. |
+| `Explain` | Returns the planned strategy, indices used, estimated rows/bytes, and rejected alternatives for a query shape. | Ask "which order/index would this use?" before running it. |
+
+### Cursor and paging commands
+
+| Command | What it does | Use it when |
+| :--- | :--- | :--- |
+| `Scan` | Runs a filter, returns the first page, and may return a session-bound `cursor_token`. | You want a simple `SCAN WHILE ...` style page cursor. |
+| `ScanNext` | Continues a previous `Scan` using its token. Returns `InvalidCursor` for bad, expired, or wrong-session tokens. | You are inside the loop and need the next page. |
+| `Fetch` | Runs a query shape with `limit` and `offset`, without keeping a server cursor. | Stateless UI pagination. |
+| `Stream` | Prepares a query shape once and returns a `cursor_id`. | Long browse/iteration cursor. |
+| `StreamNext` | Returns the next page for a `Stream` cursor and advances its offset. | Continue a long browse cursor. |
+| `StreamClose` | Releases a `Stream` cursor early. | Close the browse cursor. |
+
+### Write commands
+
+| Command | What it does | Use it when |
+| :--- | :--- | :--- |
+| `Append` | Appends one row, generates a UUIDv7 id, writes WAL first, returns id and checksum. | `APPEND BLANK` plus filled fields in one durable call. |
+| `Lock` | Acquires the record lock for this session. | Begin an edit on the current row. |
+| `Replace` | Replaces all fields for a locked row, validates schema/index mutations, commits through WAL, releases the lock, and returns checksum. | FoxPro `REPLACE ...` on a locked/current row. |
+| `Unlock` | Releases the lock without committing additional changes. | Cancel/release edit state. |
+| `Delete` | Soft-deletes a locked row, updates indexes, commits through WAL, and releases the lock. | `DELETE` on the current row. |
+| `BatchCommit` | Commits multiple inserts/replaces/deletes as one batch and can coalesce same-table writes. | Bulk update/import path. |
+| `Checkpoint` | Flushes table/index state so recovery has less WAL to replay. | Maintenance/durability housekeeping. |
+
+### Advanced extension and notification commands
+
+| Command | What it does | Use it when |
+| :--- | :--- | :--- |
+| `RegisterCursor` | Compiles/registers a Wasm row filter and returns a filter id. | You need a custom row predicate loaded into the server. |
+| `InvokeCursorFilter` | Invokes a registered Wasm row filter for one encoded row and returns accepted/rejected. | You are applying that custom filter. |
+| `Subscribe` | Subscribes this session to write notifications for a table handle. | UI/live client wants change notices. |
+| `Unsubscribe` | Stops table notifications for this session. | Close live update channel. |
+| `RegisterUdp` | Registers a UDP port for push notifications after table writes. | Low-latency side-channel notification. |
+| `SystemGetStats` | Returns workload counters such as appends, replaces, seeks, full scans, and range scans. | Dashboard/operations view. |
 
 ## Common Errors and What To Do
 
