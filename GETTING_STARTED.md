@@ -132,22 +132,19 @@ navigation cursor. `RegisterCursor` registers a Wasm filter function and returns
 a `cursor_id`; `InvokeCursorFilter` asks that Wasm function whether one encoded
 row is accepted. Think "registered executable row filter", not `SCAN` state.
 
-## Why This Is Next Level
+## Why The Cursor Matters
 
-FoxPro made local cursors feel magical, but the hard work often happened in the
-client process: walk rows, follow relations, calculate totals, and fill a local
-`SELECT ... INTO CURSOR` result. That was wonderful on a single workstation and
-painful once the data lived on a server or a LAN share.
+FoxPro was fast because a program could keep several tables open at once, set a
+current order for each work area, jump to an indexed key with `SEEK`, and then
+walk only the matching range with `SCAN WHILE`. A report cursor was often just a
+temporary work area filled by procedural code: `CREATE CURSOR`, `APPEND BLANK`,
+`REPLACE`, then `BROWSE` or print.
 
-k-lani's direction is different:
-
-- Tables, indexes, locks, result limits, and cursor pages live at the engine
-  boundary, not in UI code.
-- The query shape is explicit: seek, stream, intersect, page, lock, replace.
-- Wasm lets trusted compute move toward the data without giving that compute a
-  full database engine API.
-- The server can expose a joined/report cursor as pages, so the client displays
-  rows instead of rebuilding the report by walking every base table itself.
+k-lani keeps that spirit, but it does not hide the active table and active order
+inside process-global state. The client opens table handles explicitly, chooses
+the indexed field per command, and continues large reads with cursor tokens or
+stream ids. That is why the wire protocol has `SeekByField`, `Scan`,
+`ScanNext`, `Stream`, and `StreamNext` instead of a server-side SQL dialect.
 
 ### Is Wasm possible in the public demo today?
 
@@ -166,15 +163,13 @@ What exists today:
 
 What is not packaged as a one-command public workflow yet:
 
-- `BuildJoinedCursor(customers, invoices, invoice_lines, wasm_module)` as a
-  polished wire command
-- a public UI page that uploads a Wasm module and displays the resulting joined
-  report cursor
+- a polished command that builds a multi-table report cursor in one request
+- a public UI page that uploads a Wasm module and displays such a report cursor
 
-That distinction matters. The primitives are real; the ergonomic joined-cursor
-SDK/demo layer is the missing next public example.
+That distinction matters. The low-level pieces are real; the ergonomic report
+cursor workflow is the missing next public example.
 
-## Northwind-Style Joined Cursor Example
+## FoxPro-Style Report Cursor Example
 
 The English table name for the old "invoice positions" idea is usually
 `invoice_lines` or `invoice_line_items`. This example uses `invoice_lines`.
@@ -318,118 +313,138 @@ result cursor with this row shape:
 | `BONAP` | Bon app | 1 | 5500 |
 | `QUEEN` | Queen Cozinha | 0 | 0 |
 
-### How FoxPro would feel
+### How old FoxPro code actually looked
 
-The old style is expressive:
+This is the procedural shape old FoxPro developers recognize. It opens three
+tables in separate work areas, chooses the controlling index for each one, walks
+the parent table, seeks into child ranges, and fills a temporary result cursor.
 
 ```foxpro
-SELECT c.customer_no, c.name, COUNT(DISTINCT i.invoice_id) AS invoice_count, ;
-       SUM(l.quantity * l.unit_price_cents) AS revenue_cents ;
-  FROM customers c ;
-  LEFT JOIN invoices i ON i.customer_no = c.customer_no ;
-  LEFT JOIN invoice_lines l ON l.invoice_id = i.invoice_id ;
- GROUP BY c.customer_no, c.name ;
- ORDER BY revenue_cents DESC ;
- INTO CURSOR customer_revenue
+USE customers IN 0 ALIAS customers
+USE invoices IN 0 ALIAS invoices
+USE invoice_lines IN 0 ALIAS lines
+
+SELECT customers
+SET ORDER TO customer_no
+
+SELECT invoices
+SET ORDER TO customer_no
+
+SELECT lines
+SET ORDER TO invoice_id
+
+CREATE CURSOR customer_revenue ;
+    (customer_no C(8), name C(80), invoice_count I, revenue_cents N(12,0))
+
+SELECT customers
+SCAN
+    lcCustomerNo = customers.customer_no
+    lcName = customers.name
+    lnInvoiceCount = 0
+    lnRevenueCents = 0
+
+    SELECT invoices
+    SEEK lcCustomerNo
+    SCAN WHILE invoices.customer_no = lcCustomerNo
+        lnInvoiceCount = lnInvoiceCount + 1
+        lnInvoiceId = invoices.invoice_id
+
+        SELECT lines
+        SEEK lnInvoiceId
+        SCAN WHILE lines.invoice_id = lnInvoiceId
+            lnRevenueCents = lnRevenueCents + ;
+                (lines.quantity * lines.unit_price_cents)
+        ENDSCAN
+
+        SELECT invoices
+    ENDSCAN
+
+    SELECT customer_revenue
+    APPEND BLANK
+    REPLACE customer_no WITH lcCustomerNo, ;
+            name WITH lcName, ;
+            invoice_count WITH lnInvoiceCount, ;
+            revenue_cents WITH lnRevenueCents
+
+    SELECT customers
+ENDSCAN
+
+SELECT customer_revenue
+INDEX ON revenue_cents TAG revenue_cents DESCENDING
+SET ORDER TO revenue_cents
+BROWSE
 ```
 
-The danger is where the work runs. In a naive client cursor implementation, the
-client pulls too much base data and does the relation walking locally.
+The cursor is a table-shaped work area. It has fields, rows, a current record,
+and an order for display. The important part is not a query string; it is the
+mechanical loop: select a work area, seek to a key, scan the matching run, append
+a row to the result cursor, return to the parent work area.
 
-### k-lani shape
+### The same shape in k-lani primitives
 
-The engine-level shape should be explicit:
+k-lani makes each hidden FoxPro state transition explicit:
 
-1. `OpenTable("customers")`, `OpenTable("invoices")`, `OpenTable("invoice_lines")`.
-2. `Stream` or `Fetch` indexed customers in display order.
-3. For each customer, `SeekByField(invoices, "customer_no", customer_no, mask)`.
-4. For each invoice id, `SeekByField(invoice_lines, "invoice_id", invoice_id, mask)`.
-5. Feed the encoded line rows into a server-side Wasm reducer that returns
-   `sum(quantity * unit_price_cents)`.
-6. Emit a joined cursor row: `(customer_no, name, invoice_count, revenue_cents)`.
-7. Return that joined cursor through `StreamNext` pages to the client.
+| FoxPro step | k-lani primitive |
+| :--- | :--- |
+| `USE customers IN 0 ALIAS customers` | `OpenTable("customers")` returns a session-bound handle |
+| `SET ORDER TO customer_no` | each seek names the indexed field, for example `SeekByField(handle, "customer_no", ...)` |
+| `SEEK lcCustomerNo` | indexed lookup using the encoded key bytes |
+| `SCAN WHILE invoices.customer_no = lcCustomerNo` | consume returned matching rows, or use `Scan`/`ScanNext` for paged filters |
+| `CREATE CURSOR customer_revenue (...)` | client or server allocates a result row shape for the report |
+| `APPEND BLANK` + `REPLACE ...` | build one result row and push it into the result page/cursor buffer |
+| `BROWSE` | client renders pages returned by `ScanNext` or `StreamNext` |
 
-The client sees a simple report cursor. The server owns the table walking,
-index use, result limits, and Wasm execution.
+The explicit engine flow is:
 
-### Wasm reducer sketch
+1. `OpenTable("customers")`, `OpenTable("invoices")`, and
+   `OpenTable("invoice_lines")` for the current session.
+2. Read customers with `Stream` when the client wants a long browse cursor, or
+   `Fetch` when it wants a stateless page.
+3. For each customer row, call
+   `SeekByField(invoices_handle, "customer_no", customer_no_bytes, field_mask)`.
+4. For each invoice id, call
+   `SeekByField(lines_handle, "invoice_id", invoice_id_bytes, field_mask)`.
+5. Calculate `invoice_count` and `revenue_cents` from the returned child rows.
+6. Append `(customer_no, name, invoice_count, revenue_cents)` to a report page.
+7. Return the report page to the client, or keep a server-side stream cursor if
+   the report is long enough to page.
 
-Current public wire Wasm calls use `filter_row(ptr, len) -> i32`. A revenue
-cursor needs the same sandbox idea but with a reducer export, for example
-`sum_invoice_lines(ptr, len) -> i64`. The host would pass a compact buffer of
-line rows, where each row is:
+That is intentionally close to FoxPro's real work-area loop. The difference is
+that k-lani can move the loop to a server-side command or SDK helper later
+without changing the storage model: the server already owns table handles,
+indexed seeks, projections, limits, locks, and cursor paging.
 
-```text
-quantity: u32 little-endian
-unit_price_cents: i64 little-endian
-```
+### What a k-lani cursor is in the code today
 
-The Wasm logic is deliberately tiny:
+There are three separate cursor shapes in the workspace:
 
-```wat
-(module
-  (memory (export "memory") 1)
-  (func (export "sum_invoice_lines")
-    (param $ptr i32)
-    (param $len i32)
-    (result i64)
-    (local $off i32)
-    (local $sum i64)
-    (local $qty i64)
-    (local $price i64)
-    (block $done
-      (loop $loop
-        (br_if $done (i32.ge_u (local.get $off) (local.get $len)))
-        (local.set $qty
-          (i64.extend_i32_u (i32.load (i32.add (local.get $ptr) (local.get $off))))
-        )
-        (local.set $price
-          (i64.load (i32.add (i32.add (local.get $ptr) (local.get $off)) (i32.const 4)))
-        )
-        (local.set $sum
-          (i64.add (local.get $sum) (i64.mul (local.get $qty) (local.get $price)))
-        )
-        (local.set $off (i32.add (local.get $off) (i32.const 12)))
-        (br $loop)
-      )
-    )
-    (local.get $sum)
-  )
-)
-```
+| Cursor | Where it lives | What it stores | What it is for |
+| :--- | :--- | :--- | :--- |
+| `ScanCursor` | server engine | materialized matching records, next offset, page size, owning session | `Scan` followed by `ScanNext` page tokens |
+| `StreamCursor` | server engine | prepared row numbers, projection mask, next offset, owning session | long-running `Stream` / `StreamNext` browse-style reads |
+| `TimeTravelCursor` | core debug module | table path, schema, current slot, snapshot cutoff, optional projection | read-only debug walking over append slots |
 
-That is the next-level part: not "the browser loops over invoices and builds a
-local cursor", but "the server creates a report cursor and uses sandboxed Wasm
-for the calculation beside the data".
+`ScanCursor` is closest to a short FoxPro `SCAN WHILE` result page. The server
+does the filter work, stores the matching records, and hands back a token for
+the next page.
 
-### Intended SDK shape
+`StreamCursor` is closer to a browse cursor. The server keeps the row numbers
+and projection state, and each `StreamNext` materializes the next page. This is
+the best fit for long UI grids or a future server-built report cursor.
 
-The public API should eventually feel this small:
+`TimeTravelCursor` is not a general application cursor. It is a debug reader
+over table slots. It snapshots the append boundary when opened, can step
+forward/backward by slot, can project fields, and can stage an in-memory update
+overlay, but it is not MVCC and it is not the TCP `ScanNext` token.
 
-```rust
-let cursor = db
-    .joined_cursor("customer_revenue")
-    .from("customers")
-    .left_join("invoices", "customer_no", "customer_no")
-    .left_join("invoice_lines", "invoice_id", "invoice_id")
-    .wasm_reducer("sum_invoice_lines.wasm")
-    .project([
-        "customers.customer_no",
-        "customers.name",
-        "count(invoices.invoice_id) as invoice_count",
-        "wasm.sum(invoice_lines.quantity, invoice_lines.unit_price_cents) as revenue_cents",
-    ])
-    .order_by_desc("revenue_cents")
-    .stream(100)?;
+`RegisterCursor` / `InvokeCursorFilter` are different again: they register and
+call a Wasm row filter named `filter_row(ptr, len) -> i32`. That is useful for
+sandboxed row predicates, but it is not the FoxPro navigation cursor and it is
+not currently a shipped report reducer command.
 
-while let Some(page) = cursor.next_page()? {
-    render_customer_revenue(page);
-}
-```
-
-That exact fluent API is not published yet. It is the thin SDK layer over the
-already existing lower-level pieces: table handles, indexed seeks, streams,
-result limits, and Wasm execution.
+The practical rule: when documenting current behavior, say `ScanCursor`,
+`StreamCursor`, or `TimeTravelCursor` and describe the rows they hold. Do not
+pretend there is a hidden SQL planner or a published fluent report API.
 
 ## Create a Table Schema
 
