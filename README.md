@@ -19,6 +19,13 @@ New to the engine model? Start with [GETTING_STARTED.md](GETTING_STARTED.md)
 for the first table, field types, write/query flow, language entry points, and
 common error handling.
 
+Legal and contribution context:
+
+- [LICENSE.md](LICENSE.md) - Business Source License 1.1 terms for the
+  redistributed preview binaries and k-lani work.
+- [SYMBIOSIS.md](SYMBIOSIS.md) - social contribution pact for agents, toolchains,
+  and humans; it does not replace the license.
+
 ## 1. The Thundering Herd Benchmark
 
 Traditional locking databases struggle when a small inventory surface receives a
@@ -166,6 +173,9 @@ docker run --rm \
 
 - `GETTING_STARTED.md` explains the first-table workflow, supported field
   types, language entry points, SQL-to-k-lani query shapes, and common errors.
+- `LICENSE.md` contains the full legal license for the redistributed preview
+  bundle and k-lani work.
+- `SYMBIOSIS.md` contains the non-legal contribution pact for agents and humans.
 - `bin/` contains only the four runtime binaries needed for the public demo
   modes.
 - `docker-compose.yml` starts the local landing, horde, and HFT preview stack.
@@ -190,3 +200,5 @@ What is not in this repo:
   private build output.
 - Public benchmark claims should be read together with the committed reports and
   the checksum manifest.
+- The Symbiosis Pact is social context only; the license remains the legal
+  authority.

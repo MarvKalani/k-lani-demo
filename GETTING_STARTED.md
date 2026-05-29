@@ -132,6 +132,305 @@ navigation cursor. `RegisterCursor` registers a Wasm filter function and returns
 a `cursor_id`; `InvokeCursorFilter` asks that Wasm function whether one encoded
 row is accepted. Think "registered executable row filter", not `SCAN` state.
 
+## Why This Is Next Level
+
+FoxPro made local cursors feel magical, but the hard work often happened in the
+client process: walk rows, follow relations, calculate totals, and fill a local
+`SELECT ... INTO CURSOR` result. That was wonderful on a single workstation and
+painful once the data lived on a server or a LAN share.
+
+k-lani's direction is different:
+
+- Tables, indexes, locks, result limits, and cursor pages live at the engine
+  boundary, not in UI code.
+- The query shape is explicit: seek, stream, intersect, page, lock, replace.
+- Wasm lets trusted compute move toward the data without giving that compute a
+  full database engine API.
+- The server can expose a joined/report cursor as pages, so the client displays
+  rows instead of rebuilding the report by walking every base table itself.
+
+### Is Wasm possible in the public demo today?
+
+Partly, yes. The published server binary contains the Wasm command surface:
+`RegisterCursor` compiles/registers a Wasm module, and `InvokeCursorFilter`
+calls a module export named `filter_row(ptr, len) -> i32` for encoded row bytes.
+Those commands require a privileged session; the public browser pages do not
+currently expose a Wasm demo button.
+
+What exists today:
+
+- server-side Wasm row filtering through `RegisterCursor` and
+  `InvokeCursorFilter`
+- a workspace Wasm executor for copied-memory filter/aggregate PoCs
+- a newer zero-copy Wasm UDF crate boundary for host-pointer scan work
+
+What is not packaged as a one-command public workflow yet:
+
+- `BuildJoinedCursor(customers, invoices, invoice_lines, wasm_module)` as a
+  polished wire command
+- a public UI page that uploads a Wasm module and displays the resulting joined
+  report cursor
+
+That distinction matters. The primitives are real; the ergonomic joined-cursor
+SDK/demo layer is the missing next public example.
+
+## Northwind-Style Joined Cursor Example
+
+The English table name for the old "invoice positions" idea is usually
+`invoice_lines` or `invoice_line_items`. This example uses `invoice_lines`.
+
+Imagine an old FoxPro/Northwind-style report: show customers and their invoice
+revenue, starting with `Alfreds Futterkiste`.
+
+### Base tables
+
+`customers.yaml`:
+
+```yaml
+table: customers
+version: 1
+owner_field: customer_no
+fields:
+  - name: customer_no
+    type: fixed_string
+    length: 8
+    required: true
+    index: unique
+  - name: name
+    type: fixed_string
+    length: 80
+    required: true
+    index: non_unique
+  - name: city
+    type: fixed_string
+    length: 40
+    index: non_unique
+```
+
+`invoices.yaml`:
+
+```yaml
+table: invoices
+version: 1
+owner_field: invoice_id
+fields:
+  - name: invoice_id
+    type: uint32
+    required: true
+    index: unique
+  - name: customer_no
+    type: fixed_string
+    length: 8
+    required: true
+    index: non_unique
+  - name: invoice_date
+    type: date
+  - name: status
+    type: uint8
+    index: non_unique
+```
+
+`invoice_lines.yaml`:
+
+```yaml
+table: invoice_lines
+version: 1
+owner_field: invoice_id
+fields:
+  - name: invoice_id
+    type: uint32
+    required: true
+    index: non_unique
+  - name: line_no
+    type: uint16
+  - name: product_name
+    type: fixed_string
+    length: 80
+  - name: quantity
+    type: uint32
+  - name: unit_price_cents
+    type: int64
+```
+
+Create and seed the customer table in embedded Rust:
+
+```rust
+use k_lani_core::error::Result;
+use k_lani_core::table::{SecondaryIndexSpec, Table};
+use k_lani_core::types::field::{FieldType, FieldValue};
+use std::path::Path;
+
+fn fixed(text: &str) -> FieldValue {
+  FieldValue::FixedString(text.as_bytes().to_vec())
+}
+
+fn create_and_seed_customers(dir: &Path) -> Result<Table> {
+  std::fs::create_dir_all(dir)?;
+
+  let fields = [
+    FieldType::FixedString(8),
+    FieldType::FixedString(80),
+    FieldType::FixedString(40),
+  ];
+  let indexes = [
+    SecondaryIndexSpec { field_idx: 0, unique: true },
+    SecondaryIndexSpec { field_idx: 1, unique: false },
+    SecondaryIndexSpec { field_idx: 2, unique: false },
+  ];
+
+  let mut customers = Table::create(dir, "customers", &fields, 1)?;
+  customers.rebuild_secondary_indexes(&indexes)?;
+
+  for row in [
+    ("ALFKI", "Alfreds Futterkiste", "Berlin"),
+    ("ANATR", "Ana Trujillo Emparedados y helados", "Mexico City"),
+    ("BONAP", "Bon app", "Marseille"),
+    ("FRANK", "Frankenversand", "Muenchen"),
+    ("QUEEN", "Queen Cozinha", "Sao Paulo"),
+  ] {
+    customers.append(&[fixed(row.0), fixed(row.1), fixed(row.2)])?;
+  }
+
+  Ok(customers)
+}
+```
+
+The `invoices` and `invoice_lines` tables use the same pattern: define the
+field widths, rebuild the declared secondary indexes, then append values in
+schema order.
+
+Seed data:
+
+| Table | Rows |
+| :--- | :--- |
+| `customers` | `ALFKI Alfreds Futterkiste Berlin`, `ANATR Ana Trujillo Emparedados y helados Mexico City`, `BONAP Bon app Marseille`, `FRANK Frankenversand Muenchen`, `QUEEN Queen Cozinha Sao Paulo` |
+| `invoices` | `1001 ALFKI paid`, `1002 ALFKI open`, `1003 ANATR paid`, `1004 BONAP paid`, `1005 FRANK paid` |
+| `invoice_lines` | `1001 Chai 10 x 1800`, `1001 Chang 5 x 1900`, `1002 Ikura 2 x 3100`, `1003 Queso 3 x 2100`, `1003 Cajun Seasoning 4 x 2200`, `1004 Chef Anton Gumbo 1 x 5500`, `1005 Tofu 8 x 1200`, `1005 Manjimup Apples 2 x 9900` |
+
+The report cursor we want back is not a stored table. It is a materialized
+result cursor with this row shape:
+
+| customer_no | name | invoice_count | revenue_cents |
+| :--- | :--- | ---: | ---: |
+| `ALFKI` | Alfreds Futterkiste | 2 | 33700 |
+| `FRANK` | Frankenversand | 1 | 29400 |
+| `ANATR` | Ana Trujillo Emparedados y helados | 1 | 15100 |
+| `BONAP` | Bon app | 1 | 5500 |
+| `QUEEN` | Queen Cozinha | 0 | 0 |
+
+### How FoxPro would feel
+
+The old style is expressive:
+
+```foxpro
+SELECT c.customer_no, c.name, COUNT(DISTINCT i.invoice_id) AS invoice_count, ;
+       SUM(l.quantity * l.unit_price_cents) AS revenue_cents ;
+  FROM customers c ;
+  LEFT JOIN invoices i ON i.customer_no = c.customer_no ;
+  LEFT JOIN invoice_lines l ON l.invoice_id = i.invoice_id ;
+ GROUP BY c.customer_no, c.name ;
+ ORDER BY revenue_cents DESC ;
+ INTO CURSOR customer_revenue
+```
+
+The danger is where the work runs. In a naive client cursor implementation, the
+client pulls too much base data and does the relation walking locally.
+
+### k-lani shape
+
+The engine-level shape should be explicit:
+
+1. `OpenTable("customers")`, `OpenTable("invoices")`, `OpenTable("invoice_lines")`.
+2. `Stream` or `Fetch` indexed customers in display order.
+3. For each customer, `SeekByField(invoices, "customer_no", customer_no, mask)`.
+4. For each invoice id, `SeekByField(invoice_lines, "invoice_id", invoice_id, mask)`.
+5. Feed the encoded line rows into a server-side Wasm reducer that returns
+   `sum(quantity * unit_price_cents)`.
+6. Emit a joined cursor row: `(customer_no, name, invoice_count, revenue_cents)`.
+7. Return that joined cursor through `StreamNext` pages to the client.
+
+The client sees a simple report cursor. The server owns the table walking,
+index use, result limits, and Wasm execution.
+
+### Wasm reducer sketch
+
+Current public wire Wasm calls use `filter_row(ptr, len) -> i32`. A revenue
+cursor needs the same sandbox idea but with a reducer export, for example
+`sum_invoice_lines(ptr, len) -> i64`. The host would pass a compact buffer of
+line rows, where each row is:
+
+```text
+quantity: u32 little-endian
+unit_price_cents: i64 little-endian
+```
+
+The Wasm logic is deliberately tiny:
+
+```wat
+(module
+  (memory (export "memory") 1)
+  (func (export "sum_invoice_lines")
+    (param $ptr i32)
+    (param $len i32)
+    (result i64)
+    (local $off i32)
+    (local $sum i64)
+    (local $qty i64)
+    (local $price i64)
+    (block $done
+      (loop $loop
+        (br_if $done (i32.ge_u (local.get $off) (local.get $len)))
+        (local.set $qty
+          (i64.extend_i32_u (i32.load (i32.add (local.get $ptr) (local.get $off))))
+        )
+        (local.set $price
+          (i64.load (i32.add (i32.add (local.get $ptr) (local.get $off)) (i32.const 4)))
+        )
+        (local.set $sum
+          (i64.add (local.get $sum) (i64.mul (local.get $qty) (local.get $price)))
+        )
+        (local.set $off (i32.add (local.get $off) (i32.const 12)))
+        (br $loop)
+      )
+    )
+    (local.get $sum)
+  )
+)
+```
+
+That is the next-level part: not "the browser loops over invoices and builds a
+local cursor", but "the server creates a report cursor and uses sandboxed Wasm
+for the calculation beside the data".
+
+### Intended SDK shape
+
+The public API should eventually feel this small:
+
+```rust
+let cursor = db
+    .joined_cursor("customer_revenue")
+    .from("customers")
+    .left_join("invoices", "customer_no", "customer_no")
+    .left_join("invoice_lines", "invoice_id", "invoice_id")
+    .wasm_reducer("sum_invoice_lines.wasm")
+    .project([
+        "customers.customer_no",
+        "customers.name",
+        "count(invoices.invoice_id) as invoice_count",
+        "wasm.sum(invoice_lines.quantity, invoice_lines.unit_price_cents) as revenue_cents",
+    ])
+    .order_by_desc("revenue_cents")
+    .stream(100)?;
+
+while let Some(page) = cursor.next_page()? {
+    render_customer_revenue(page);
+}
+```
+
+That exact fluent API is not published yet. It is the thin SDK layer over the
+already existing lower-level pieces: table handles, indexed seeks, streams,
+result limits, and Wasm execution.
+
 ## Create a Table Schema
 
 For the server path, keep a YAML sidecar named after the table, for example
@@ -370,7 +669,7 @@ SQL text; they send one of these commands with typed bytes.
 
 | Command | What it does | Use it when |
 | :--- | :--- | :--- |
-| `RegisterCursor` | Compiles/registers a Wasm row filter and returns a filter id. | You need a custom row predicate loaded into the server. |
+| `RegisterCursor` | Compiles/registers a Wasm row filter exporting `filter_row(ptr, len) -> i32` and returns a filter id. | You need a custom row predicate loaded into the server. |
 | `InvokeCursorFilter` | Invokes a registered Wasm row filter for one encoded row and returns accepted/rejected. | You are applying that custom filter. |
 | `Subscribe` | Subscribes this session to write notifications for a table handle. | UI/live client wants change notices. |
 | `Unsubscribe` | Stops table notifications for this session. | Close live update channel. |
