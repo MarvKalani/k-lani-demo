@@ -1661,17 +1661,18 @@ let reopened = Table::open(dir, "kunden")?;</pre>
                         <article class="guide-card" style="--accent: var(--amber);">
                             <span class="proof-icon" style="color: var(--amber);">C#</span>
                             <h3>C#: TCP client against k-lani-server</h3>
-                            <p>The current C# path is a lightweight .NET 8 client over raw TCP frames. The demo client connects, fetches schema metadata, opens a table handle, and then runs append, seek, lock, replace, and delete against the Rust server.</p>
-                            <pre>cd examples/csharp-client-demo
+                            <p>The honest C# entry point today is the bundled .NET 8 demo client. It already contains one complete sample model mapping for the demo table <strong>kunden</strong>. The class <strong>KundeCodec</strong> is not magic framework API; it is just the example-side serializer that maps the demo table fields onto the bundled <strong>Kunde</strong> record type.</p>
+                            <pre># run the bundled demo client first
+cd examples/csharp-client-demo
 dotnet run -- 127.0.0.1:7700 kunden
 
-await using var client = await MkLaniClient.ConnectAsync("127.0.0.1:7700");
-await using var kunden = await client.UseTableAsync("kunden", new KundeCodec());
-var row = kunden.AppendBlank();
-await kunden.ReplaceAsync(row);
-var loaded = await kunden.SeekAsync(row.Id);
-await kunden.LockAsync(loaded!.Id);
-await kunden.DeleteAsync(loaded);</pre>
+# then inspect the example files in this repo
+Kunde.cs       # sample row model for the table "kunden"
+KundeCodec.cs  # IMkLaniRecordCodec&lt;Kunde&gt; for that sample schema
+Program.cs     # connect, GetSchema, append, seek, lock, replace, delete
+
+# for your own table, you implement your own
+# IMkLaniRecordCodec&lt;TRecord&gt; matching your schema</pre>
                             <div class="proof-tail" style="color: var(--amber);">tcp protocol -> typed .NET client</div>
                         </article>
 
