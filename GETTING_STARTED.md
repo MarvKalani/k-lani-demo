@@ -380,6 +380,63 @@ and an order for display. The important part is not a query string; it is the
 mechanical loop: select a work area, seek to a key, scan the matching run, append
 a row to the result cursor, return to the parent work area.
 
+### Schema-derived cursor shape: AFIELDS, but safer
+
+FoxPro had the right instinct with `AFIELDS()` plus
+`CREATE CURSOR ... FROM ARRAY`: copy field metadata from an existing table, then
+create a cursor with matching name/type/width/scale instead of hand-writing
+`C(10)` and hoping the source field never grows.
+
+```foxpro
+SELECT customers
+AFIELDS(laCustomerFields)
+
+* Old FoxPro code would copy rows from laCustomerFields,
+* edit the array, then create the result cursor from it.
+CREATE CURSOR customer_invoice FROM ARRAY laCursorFields
+```
+
+k-lani already has the AFIELDS-like source of truth: `GetSchema` returns
+`TableSchemaData`, and each `SchemaFieldData` carries the field name, type tag,
+length, scale, required flag, index kind, and label. If a YAML sidecar exists,
+the server validates it against the `.mkx` layout and returns the richer YAML
+metadata. If no YAML exists, the server reads the embedded `.mkx` schema block
+and returns the on-disk `FieldDescriptor` metadata.
+
+The better k-lani version should not copy anonymous array rows. It should define
+a cursor shape from table-qualified fields:
+
+```text
+customer_invoice cursor shape:
+  customers.customer_no as customer_no
+  customers.name        as customer_name
+  invoices.invoice_id   as invoice_id
+  invoices.status       as invoice_status
+```
+
+The resolver then asks `GetSchema("customers")` and `GetSchema("invoices")`,
+copies the exact source field descriptors into the result shape, and records
+where each output field came from. If `customers.name` changes from
+`FixedString(80)` to `FixedString(100)`, the next resolved cursor shape uses
+length 100. No hand-written report cursor keeps silently truncating names at an
+old width.
+
+Computed fields must be explicit, Rust-style, because the engine should not
+guess precision for business values:
+
+```text
+customer_revenue cursor shape:
+  customers.customer_no as customer_no
+  customers.name        as customer_name
+  count(invoices.invoice_id) as invoice_count: uint32
+  sum(invoice_lines.quantity * invoice_lines.unit_price_cents) as revenue_cents: int64
+```
+
+That is the useful upgrade over `AFIELDS`: a report cursor declares what fields
+it intends to carry, source fields inherit their real storage shape dynamically,
+and derived fields declare their output type. A schema change then fails loudly
+or widens the cursor correctly instead of becoming a late UI/data corruption bug.
+
 ### The same shape in k-lani primitives
 
 k-lani makes each hidden FoxPro state transition explicit:
@@ -390,7 +447,7 @@ k-lani makes each hidden FoxPro state transition explicit:
 | `SET ORDER TO customer_no` | each seek names the indexed field, for example `SeekByField(handle, "customer_no", ...)` |
 | `SEEK lcCustomerNo` | indexed lookup using the encoded key bytes |
 | `SCAN WHILE invoices.customer_no = lcCustomerNo` | consume returned matching rows, or use `Scan`/`ScanNext` for paged filters |
-| `CREATE CURSOR customer_revenue (...)` | client or server allocates a result row shape for the report |
+| `CREATE CURSOR customer_revenue (...)` | resolve a result shape from `GetSchema` plus explicit computed fields |
 | `APPEND BLANK` + `REPLACE ...` | build one result row and push it into the result page/cursor buffer |
 | `BROWSE` | client renders pages returned by `ScanNext` or `StreamNext` |
 
@@ -414,15 +471,14 @@ that k-lani can move the loop to a server-side command or SDK helper later
 without changing the storage model: the server already owns table handles,
 indexed seeks, projections, limits, locks, and cursor paging.
 
-### What a k-lani cursor is in the code today
+### Navigation cursors in the code today
 
-There are three separate cursor shapes in the workspace:
+There are two server cursor shapes for normal browse/report paging:
 
 | Cursor | Where it lives | What it stores | What it is for |
 | :--- | :--- | :--- | :--- |
 | `ScanCursor` | server engine | materialized matching records, next offset, page size, owning session | `Scan` followed by `ScanNext` page tokens |
 | `StreamCursor` | server engine | prepared row numbers, projection mask, next offset, owning session | long-running `Stream` / `StreamNext` browse-style reads |
-| `TimeTravelCursor` | core debug module | table path, schema, current slot, snapshot cutoff, optional projection | read-only debug walking over append slots |
 
 `ScanCursor` is closest to a short FoxPro `SCAN WHILE` result page. The server
 does the filter work, stores the matching records, and hands back a token for
@@ -432,19 +488,35 @@ the next page.
 and projection state, and each `StreamNext` materializes the next page. This is
 the best fit for long UI grids or a future server-built report cursor.
 
-`TimeTravelCursor` is not a general application cursor. It is a debug reader
-over table slots. It snapshots the append boundary when opened, can step
-forward/backward by slot, can project fields, and can stage an in-memory update
-overlay, but it is not MVCC and it is not the TCP `ScanNext` token.
+### Time travel is separate history machinery
+
+`TimeTravelCursor` is badly named if you are thinking in FoxPro work areas. It
+is not the customer/invoice report cursor and it is not the TCP `ScanNext` token.
+It belongs to the Data Debugger/history path.
+
+The current implementation opens an independent `.mkx` view, captures a slot
+cutoff, and walks historical slots. For append-only/WORM tables, that is the
+fast path for reading the table as it existed at that append boundary, because
+old rows are not updated in place. For mutable tables, ADR-0013 documents the
+next deeper layer: WAL-replay-backed reconstruction of historical record images.
+
+So the mental split is:
+
+- `ScanCursor` / `StreamCursor`: browse, report, page, project, render.
+- `GetSchema` / schema-derived cursor shape: decide what fields a report cursor
+  contains and what widths/types they really have.
+- `TimeTravelCursor`: debug/history/time axis over stored records, not the
+  report cursor model.
 
 `RegisterCursor` / `InvokeCursorFilter` are different again: they register and
 call a Wasm row filter named `filter_row(ptr, len) -> i32`. That is useful for
 sandboxed row predicates, but it is not the FoxPro navigation cursor and it is
 not currently a shipped report reducer command.
 
-The practical rule: when documenting current behavior, say `ScanCursor`,
-`StreamCursor`, or `TimeTravelCursor` and describe the rows they hold. Do not
-pretend there is a hidden SQL planner or a published fluent report API.
+The practical rule: when documenting current report behavior, say `ScanCursor`,
+`StreamCursor`, and schema-derived cursor shape. Treat time travel as a separate
+history feature. Do not pretend there is a hidden SQL planner or a published
+fluent report API.
 
 ## Create a Table Schema
 
