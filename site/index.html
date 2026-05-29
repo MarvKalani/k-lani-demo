@@ -754,6 +754,50 @@
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 18px;
         }
+        .guide-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            margin-top: 42px;
+        }
+        
+        .guide-card {
+            position: relative;
+            padding: 28px;
+            border-radius: 24px;
+            border: 1px solid rgba(52, 52, 52, 0.78);
+            background: rgba(14, 14, 14, 0.86);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .guide-card::after {
+            content: "";
+            position: absolute;
+            inset: 0 auto auto 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent, var(--green)), transparent);
+            opacity: 0.9;
+        }
+        
+        .guide-card pre {
+            margin: 18px 0 0;
+            padding: 18px;
+            border-radius: 18px;
+            border: 1px solid rgba(52, 52, 52, 0.58);
+            background: rgba(8, 8, 8, 0.88);
+            overflow: auto;
+            color: #d4d4d4;
+            font-size: 0.82rem;
+            line-height: 1.68;
+        }
+        
+        .guide-note {
+            margin-top: 22px;
+            padding-left: 18px;
+            border-left: 3px solid rgba(129, 140, 248, 0.82);
+        }
 
         .proof-card {
             padding: 28px;
@@ -793,6 +837,7 @@
         }
 
         .proof-card h3,
+        .guide-card h3,
         .surface-card h3,
         .route-copy h3 {
             margin: 22px 0 10px;
@@ -802,9 +847,11 @@
         }
 
         .proof-card p,
+        .guide-card p,
         .surface-card p,
         .route-copy p,
         .boundary p,
+        .guide-note p,
         .cta-copy,
         .footer-copy,
         .architecture-copy {
@@ -1239,7 +1286,9 @@
             }
 
             .stats-grid,
-            .proof-grid {
+            .stats-grid,
+            .proof-grid,
+            .guide-grid {
                 grid-template-columns: 1fr;
             }
 
@@ -1310,11 +1359,13 @@
                     <a class="nav-link" href="#benchmark">Benchmark</a>
                     <a class="nav-link" href="#proof">Proof</a>
                     <a class="nav-link" href="#architecture">Architecture</a>
+                    <a class="nav-link" href="#integrate">Integrate</a>
                     <a class="nav-link" href="#routes">Routes</a>
                 </div>
 
                 <div class="nav-actions">
                     <a class="button" href="//demo.k-lani.com">Dashboard</a>
+                    <a class="button" href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">GitHub</a>
                 </div>
             </div>
         </nav>
@@ -1340,6 +1391,7 @@
                         <div class="hero-actions fade-up delay-4">
                             <a class="button primary" href="#benchmark">View benchmark</a>
                             <a class="button" href="//demo.k-lani.com">Open horde</a>
+                            <a class="button" href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">GitHub repo</a>
                         </div>
                     </div>
 
@@ -1580,9 +1632,85 @@ after the storm:
             </section>
 
             <section id="routes" class="section" data-reveal>
+            <section id="integrate" class="section" data-reveal>
+                <div class="wrap">
+                    <span class="kicker">04 / Integrate today</span>
+                    <h2 class="section-title">Native use,<br>honest entry points</h2>
+                    <p class="section-copy">Today there are three practical integration shapes. Rust is the true embedded path. C# talks to <strong>k-lani-server</strong> over the TCP protocol. TypeScript talks to the QUIC/WebTransport edge through the <strong>k-lani-client</strong> browser package. The public GitHub preview repo carries the runtime and benchmark bundle; the language quickstarts below describe the current integration surface used in the full workspace.</p>
+
+                    <div class="guide-grid">
+                        <article class="guide-card" style="--accent: var(--green);">
+                            <span class="proof-icon" style="color: var(--green);">R</span>
+                            <h3>Rust: embedded or server-native</h3>
+                            <p>Use Rust when the database should live inside your own process or when you want to boot the LAN server directly. The storage API is the native path: create/open tables in-process, or run <strong class="mono">mkfx</strong> over a data directory.</p>
+                            <pre>cargo +stable build --release -p k-lani-server
+./target/release/mkfx --data-dir ./data
+
+use k_lani_core::table::Table;
+use k_lani_core::types::field::FieldType;
+use std::path::Path;
+
+let dir = Path::new("./data");
+let _table = Table::create(dir, "kunden", &[
+    FieldType::FixedString(10),
+    FieldType::FixedString(50),
+], 1)?;
+let reopened = Table::open(dir, "kunden")?;</pre>
+                            <div class="proof-tail" style="color: var(--green);">embedded storage -> no transport required</div>
+                        </article>
+
+                        <article class="guide-card" style="--accent: var(--amber);">
+                            <span class="proof-icon" style="color: var(--amber);">C#</span>
+                            <h3>C#: TCP client against k-lani-server</h3>
+                            <p>The current C# path is a lightweight .NET 8 client over raw TCP frames. The demo client connects, fetches schema metadata, opens a table handle, and then runs append, seek, lock, replace, and delete against the Rust server.</p>
+                            <pre>cd examples/csharp-client-demo
+dotnet run -- 127.0.0.1:7700 kunden
+
+await using var client = await MkLaniClient.ConnectAsync("127.0.0.1:7700");
+await using var kunden = await client.UseTableAsync("kunden", new KundeCodec());
+var row = kunden.AppendBlank();
+await kunden.ReplaceAsync(row);
+var loaded = await kunden.SeekAsync(row.Id);
+await kunden.LockAsync(loaded!.Id);
+await kunden.DeleteAsync(loaded);</pre>
+                            <div class="proof-tail" style="color: var(--amber);">tcp protocol -> typed .NET client</div>
+                        </article>
+
+                        <article class="guide-card" style="--accent: var(--indigo);">
+                            <span class="proof-icon" style="color: var(--indigo);">TS</span>
+                            <h3>TypeScript: WebTransport + WASM client</h3>
+                            <p>The current TypeScript entry point is the browser admin shell. It uses the local <strong>k-lani-client</strong> WASM package to build a binary handshake frame and then opens a direct QUIC/WebTransport session. There is no REST fallback path today.</p>
+                            <pre>cargo +stable run -p k-lani-adapter-quic --bin k-lani-quic-server -- \
+  --bind 127.0.0.1:7701 \
+  --data-dir web/k-lani-studio/.k-lani-data \
+  --path /webtransport
+
+cd web/k-lani-studio
+npm install
+npm run dev
+
+import { KLaniBrowserClientConfig } from 'k-lani-client'
+
+const cfg = new KLaniBrowserClientConfig(
+  'https://127.0.0.1:7701/webtransport',
+  'k-lani-super-admin',
+)
+const handshake = cfg.handshakeFrame(1)
+const transport = new WebTransport('https://127.0.0.1:7701/webtransport')</pre>
+                            <div class="proof-tail" style="color: var(--indigo);">browser wasm -> direct quic stream</div>
+                        </article>
+                    </div>
+
+                    <div class="guide-note">
+                        <p>Need the runtime bundle and benchmark artifacts first? Start with the public preview repository: <a href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer"><strong>github.com/MarvKalani/k-lani-demo</strong></a>. That repo is the published landing page, Docker preview, checksums, raw reports, and benchmark instructions. The quickstarts above describe the actual integration shapes used around the engine today: embedded Rust, TCP C#, and WebTransport TypeScript.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="routes" class="section" data-reveal>
                 <div class="wrap section-grid">
                     <div>
-                        <span class="kicker">04 / Public routes</span>
+                        <span class="kicker">05 / Public routes</span>
                         <h2 class="section-title">Endpoints</h2>
                         <p class="section-copy">The owner command channel stays private until signed capability tokens, replay protection, rate limits, and audit are complete. Cloudflare can proxy the HTTP pages; direct UDP/WebTransport still needs a DNS-only route or a private tunnel.</p>
                     </div>
@@ -1638,6 +1766,21 @@ after the storm:
                                     <span class="route-arrow">-></span>
                                 </div>
                             </a>
+
+                            <a class="route-row" href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">
+                                <div class="route-left">
+                                    <span class="route-icon">G</span>
+                                    <div class="route-copy">
+                                        <h3>github.com/MarvKalani/k-lani-demo</h3>
+                                        <p>Public preview repo with Docker runtime, benchmark bundle, checksums, and release docs.</p>
+                                    </div>
+                                </div>
+                                <div class="route-right">
+                                    <span class="route-tag">GitHub</span>
+                                    <span class="route-tag highlight">Docs</span>
+                                    <span class="route-arrow">-&gt;</span>
+                                </div>
+                            </a>
                         </div>
 
                         <div class="notice">
@@ -1657,6 +1800,7 @@ after the storm:
                         <div class="cta-actions">
                             <a class="button primary" href="//demo.k-lani.com">Open ticket horde</a>
                             <a class="button" href="//hft.k-lani.com">Open HFT workstation</a>
+                            <a class="button" href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">Open GitHub repo</a>
                         </div>
                     </div>
                 </div>
@@ -1697,6 +1841,9 @@ after the storm:
                         <h3>Contact</h3>
                         <div class="footer-links">
                             <a href="mailto:support@kalanis.de">support@kalanis.de</a>
+                            <a href="https://ko-fi.com/mkalani" target="_blank" rel="noreferrer">Support on Ko-fi</a>
+                            <a href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">GitHub preview repo</a>
+                            <a href="https://github.com/MarvKalani/k-lani-demo/blob/main/BENCHMARKS.md" target="_blank" rel="noreferrer">BENCHMARKS.md</a>
                             <a href="//demo.k-lani.com/ticket-demo.raw.log">ticket-demo.raw.log</a>
                             <a href="//demo.k-lani.com/host.txt">host.txt</a>
                         </div>
