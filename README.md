@@ -15,6 +15,10 @@ Live preview:
 - [demo.k-lani.com](https://demo.k-lani.com) - live ticket horde dashboard
 - [hft.k-lani.com](https://hft.k-lani.com) - experimental HFT workstation
 
+New to the engine model? Start with [GETTING_STARTED.md](GETTING_STARTED.md)
+for the first table, field types, write/query flow, language entry points, and
+common error handling.
+
 ## 1. The Thundering Herd Benchmark
 
 Traditional locking databases struggle when a small inventory surface receives a
@@ -160,6 +164,8 @@ docker run --rm \
 
 ## 4. What Is In This Repo
 
+- `GETTING_STARTED.md` explains the first-table workflow, supported field
+  types, language entry points, SQL-to-k-lani query shapes, and common errors.
 - `bin/` contains only the four runtime binaries needed for the public demo
   modes.
 - `docker-compose.yml` starts the local landing, horde, and HFT preview stack.

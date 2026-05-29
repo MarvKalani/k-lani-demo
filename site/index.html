@@ -1635,74 +1635,38 @@ after the storm:
                 <div class="wrap">
                     <span class="kicker">04 / Integrate today</span>
                     <h2 class="section-title">Native use,<br>honest entry points</h2>
-                    <p class="section-copy">Today there are three practical integration shapes. Rust is the true embedded path. C# talks to <strong>k-lani-server</strong> over the TCP protocol. TypeScript talks to the QUIC/WebTransport edge through the <strong>k-lani-client</strong> browser package. The public GitHub preview repo carries the runtime and benchmark bundle; the language quickstarts below describe the current integration surface used in the full workspace.</p>
+                    <p class="section-copy">The public GitHub repo now has the real starter guide: how to create the first table, which field types exist, how values are written, which errors come back, and how SQL-shaped thinking maps onto k-lani's explicit query commands. This page stays short; the working details live in the repo.</p>
+
+                    <div class="hero-actions">
+                        <a class="button primary" href="https://github.com/MarvKalani/k-lani-demo/blob/main/GETTING_STARTED.md" target="_blank" rel="noreferrer">Read getting started</a>
+                        <a class="button" href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">Open repo</a>
+                    </div>
 
                     <div class="guide-grid">
                         <article class="guide-card" style="--accent: var(--green);">
                             <span class="proof-icon" style="color: var(--green);">R</span>
                             <h3>Rust: embedded or server-native</h3>
-                            <p>Use Rust when the database should live inside your own process or when you want to boot the LAN server directly. The storage API is the native path: create/open tables in-process, or run <strong class="mono">mkfx</strong> over a data directory.</p>
-                            <pre>cargo +stable build --release -p k-lani-server
-./target/release/mkfx --data-dir ./data
-
-use k_lani_core::table::Table;
-use k_lani_core::types::field::FieldType;
-use std::path::Path;
-
-let dir = Path::new("./data");
-let _table = Table::create(dir, "kunden", &[
-    FieldType::FixedString(10),
-    FieldType::FixedString(50),
-], 1)?;
-let reopened = Table::open(dir, "kunden")?;</pre>
-                            <div class="proof-tail" style="color: var(--green);">embedded storage -> no transport required</div>
+                            <p>Rust is the native embedded path. The guide shows an English <strong>customers</strong> table using <strong>Table::create</strong>, <strong>FieldType</strong>, <strong>FieldValue</strong>, secondary indexes, append, indexed seek, and lock/commit updates.</p>
+                            <div class="proof-tail" style="color: var(--green);">Table::create -> append -> seek_by_field</div>
                         </article>
 
                         <article class="guide-card" style="--accent: var(--amber);">
                             <span class="proof-icon" style="color: var(--amber);">C#</span>
                             <h3>C#: TCP client against k-lani-server</h3>
-                            <p>The honest C# entry point today is the bundled .NET 8 demo client. It already contains one complete sample model mapping for the demo table <strong>kunden</strong>. The class <strong>KundeCodec</strong> is not magic framework API; it is just the example-side serializer that maps the demo table fields onto the bundled <strong>Kunde</strong> record type.</p>
-                            <pre># run the bundled demo client first
-cd examples/csharp-client-demo
-dotnet run -- 127.0.0.1:7700 kunden
-
-# then inspect the example files in this repo
-Kunde.cs       # sample row model for the table "kunden"
-KundeCodec.cs  # IMkLaniRecordCodec&lt;Kunde&gt; for that sample schema
-Program.cs     # connect, GetSchema, append, seek, lock, replace, delete
-
-# for your own table, you implement your own
-# IMkLaniRecordCodec&lt;TRecord&gt; matching your schema</pre>
-                            <div class="proof-tail" style="color: var(--amber);">tcp protocol -> typed .NET client</div>
+                            <p>C# talks to <strong>k-lani-server</strong> over the binary TCP protocol. The guide explains the current codec pattern: map your own <strong>Customer</strong> model to schema-ordered fields, then call GetSchema, Append, SeekByField, Lock, Replace, and Delete.</p>
+                            <div class="proof-tail" style="color: var(--amber);">schema fields -> codec -> tcp commands</div>
                         </article>
 
                         <article class="guide-card" style="--accent: var(--indigo);">
                             <span class="proof-icon" style="color: var(--indigo);">TS</span>
                             <h3>TypeScript: WebTransport + WASM client</h3>
-                            <p>The current TypeScript entry point is the browser admin shell. It uses the local <strong>k-lani-client</strong> WASM package to build a binary handshake frame and then opens a direct QUIC/WebTransport session. There is no REST fallback path today.</p>
-                            <pre>cargo +stable run -p k-lani-adapter-quic --bin k-lani-quic-server -- \
-  --bind 127.0.0.1:7701 \
-  --data-dir web/k-lani-studio/.k-lani-data \
-  --path /webtransport
-
-cd web/k-lani-studio
-npm install
-npm run dev
-
-import { KLaniBrowserClientConfig } from 'k-lani-client'
-
-const cfg = new KLaniBrowserClientConfig(
-  'https://127.0.0.1:7701/webtransport',
-  'k-lani-super-admin',
-)
-const handshake = cfg.handshakeFrame(1)
-const transport = new WebTransport('https://127.0.0.1:7701/webtransport')</pre>
-                            <div class="proof-tail" style="color: var(--indigo);">browser wasm -> direct quic stream</div>
+                            <p>TypeScript uses the browser/WebTransport edge through the <strong>k-lani-client</strong> WASM package. The guide is explicit that there is no REST fallback in the hot path: browser code sends binary command frames over QUIC/WebTransport.</p>
+                            <div class="proof-tail" style="color: var(--indigo);">wasm handshake -> webtransport -> command frames</div>
                         </article>
                     </div>
 
                     <div class="guide-note">
-                        <p>Need the runtime bundle and benchmark artifacts first? Start with the public preview repository: <a href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer"><strong>github.com/MarvKalani/k-lani-demo</strong></a>. That repo is the published landing page, Docker preview, checksums, raw reports, and benchmark instructions. The quickstarts above describe the actual integration shapes used around the engine today: embedded Rust, TCP C#, and WebTransport TypeScript.</p>
+                        <p>Start here: <a href="https://github.com/MarvKalani/k-lani-demo/blob/main/GETTING_STARTED.md" target="_blank" rel="noreferrer"><strong>GETTING_STARTED.md</strong></a>. It covers the first-table YAML, supported field types, Rust value writes, lock/commit updates, server commands, common error codes, and SQL-to-k-lani query mapping.</p>
                     </div>
                 </div>
             </section>
