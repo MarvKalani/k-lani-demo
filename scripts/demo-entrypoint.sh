@@ -13,6 +13,9 @@ case "$K_LANI_DEMO_MODE" in
     quic-ticket)
         exec /usr/local/share/k-lani-demo/scripts/run-quic-ticket-demo.sh "$@"
         ;;
+    holiday)
+        exec /usr/local/share/k-lani-demo/scripts/run-holiday-demo.sh "$@"
+        ;;
     horde)
         exec /usr/local/share/k-lani-demo/scripts/run-horde-demo.sh "$@"
         ;;
@@ -21,7 +24,7 @@ case "$K_LANI_DEMO_MODE" in
         ;;
     *)
         echo "[k-lani-demo] ERROR: unknown K_LANI_DEMO_MODE=$K_LANI_DEMO_MODE" >&2
-        echo "[k-lani-demo] valid modes: landing, ticket, quic-ticket, horde, hft" >&2
+        echo "[k-lani-demo] valid modes: landing, ticket, quic-ticket, holiday, horde, hft" >&2
         exit 1
         ;;
 esac

@@ -6,11 +6,12 @@ lines used for the comparative release reports.
 
 ## 1. What this preview repo can reproduce directly
 
-The following benchmark is fully reproducible from this binary-only preview
-repository:
+The following benchmark modes are fully reproducible from this binary-only
+preview repository:
 
 - the TCP `Thundering Herd` ticket benchmark served by the `horde` container
 - the one-shot native QUIC ticket benchmark served by `run-quic-ticket-demo.sh`
+- the TCP `Holiday Rush` travel-room booking smoke served by `run-holiday-demo.sh`
 
 The following assets are already inside this repo and are part of the released
 benchmark boundary:
@@ -20,8 +21,10 @@ benchmark boundary:
 - `scripts/run-ticket-demo.sh`
 - `scripts/run-horde-demo.sh`
 - `scripts/run-quic-ticket-demo.sh`
+- `scripts/run-holiday-demo.sh`
 - `reports/client-server-comparative-release-2026-05-29.md`
 - `reports/embedded-core-comparative-release-2026-04-29.md`
+- `reports/holiday-rush-smoke-2026-05-30.md`
 - `reports/benchmark-host-2026-05-29.md`
 
 ## 2. Exact Thundering Herd setup
@@ -103,7 +106,35 @@ That run uses `scripts/run-quic-ticket-demo.sh` and writes its own raw log and
 host metadata into `/reports`. It is intentionally not the source of the public
 `demo.k-lani.com` number.
 
-## 4. Exact comparative benchmark commands
+## 4. Optional Holiday Rush travel-room run
+
+The preview repo also ships the Holiday Rush travel-room booking smoke. It is a
+tight inventory scenario: 1,000 booking sessions compete for exactly 1,000 room
+rows and the benchmark recounts persisted booked rows after the run.
+
+```bash
+docker build -t k-lani-demo:preview .
+docker run --rm \
+  -e K_LANI_DEMO_MODE=holiday \
+  -e K_LANI_HOLIDAY_HOTELS=20 \
+  -e K_LANI_HOLIDAY_ROOMS_PER_HOTEL=50 \
+  -e K_LANI_HOLIDAY_SESSIONS=1000 \
+  -e K_LANI_HOLIDAY_WORKERS=16 \
+  k-lani-demo:preview
+```
+
+Expected invariant shape:
+
+```text
+holiday_rush_done sessions=1000 rooms=1000 booked=1000 verified_booked=1000 ... failed_sessions=0 ...
+```
+
+The contention counters and wall time are scheduler-dependent; the fixed
+invariant is `booked=1000`, `verified_booked=1000`, and `failed_sessions=0`.
+
+The tracked smoke report is `reports/holiday-rush-smoke-2026-05-30.md`.
+
+## 5. Exact comparative benchmark commands
 
 The comparative reports in `reports/` were generated from the full source
 workspace, not from this binary-only preview boundary. The commands below are
@@ -132,7 +163,7 @@ The exact host for that published report is described in:
 
 - `reports/benchmark-host-2026-05-29.md`
 
-## 5. Important boundary
+## 6. Important boundary
 
 This preview repository is intentionally binary-only. That is enough to make the
 ticket-horde benchmark reproducible, because the runtime binaries and entrypoint

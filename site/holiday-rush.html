@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Holiday Rush Proof | k-lani</title>
+    <meta name="description" content="Holiday Rush travel-room booking smoke for k-lani: 1,000 sessions, 1,000 rooms, 0 failed sessions, persisted recount verified.">
+    <style>
+        :root {
+            --ink: #171717;
+            --muted: #676767;
+            --paper: #f5f2ec;
+            --panel: #fffaf2;
+            --line: rgba(23, 23, 23, 0.14);
+            --green: #247a52;
+            --red: #9f3d37;
+            --gold: #b17628;
+            --blue: #2f5f8f;
+            --shadow: 0 24px 80px rgba(23, 23, 23, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            color: var(--ink);
+            background:
+                linear-gradient(180deg, rgba(255, 250, 242, 0.94), rgba(245, 242, 236, 0.98)),
+                repeating-linear-gradient(90deg, rgba(23, 23, 23, 0.035) 0 1px, transparent 1px 88px);
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            line-height: 1.5;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .wrap {
+            width: min(1120px, calc(100vw - 36px));
+            margin: 0 auto;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--line);
+            background: rgba(255, 250, 242, 0.92);
+            backdrop-filter: blur(18px);
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            min-height: 72px;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+
+        .brand-mark {
+            width: 32px;
+            height: 32px;
+            display: grid;
+            place-items: center;
+            color: #fffaf2;
+            background: var(--ink);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .links a {
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+
+        .links a:hover {
+            color: var(--ink);
+            background: rgba(23, 23, 23, 0.06);
+        }
+
+        .hero {
+            padding: 72px 0 42px;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(360px, 0.82fr);
+            gap: 34px;
+            align-items: center;
+        }
+
+        .kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--gold);
+            font-weight: 800;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin-top: 0;
+        }
+
+        h1 {
+            max-width: 760px;
+            margin-bottom: 20px;
+            font-size: clamp(42px, 8vw, 88px);
+            line-height: 0.95;
+            letter-spacing: 0;
+        }
+
+        h2 {
+            margin-bottom: 16px;
+            font-size: clamp(30px, 5vw, 56px);
+            line-height: 1;
+            letter-spacing: 0;
+        }
+
+        .lead {
+            max-width: 720px;
+            color: var(--muted);
+            font-size: clamp(18px, 2.5vw, 23px);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 11px 16px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(255, 250, 242, 0.78);
+            font-weight: 800;
+        }
+
+        .button.primary {
+            color: #fffaf2;
+            background: var(--ink);
+            border-color: var(--ink);
+        }
+
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(255, 250, 242, 0.84);
+            box-shadow: var(--shadow);
+        }
+
+        .inventory-panel {
+            overflow: hidden;
+        }
+
+        .panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            min-height: 28px;
+            padding: 5px 9px;
+            border-radius: 999px;
+            color: #fffaf2;
+            background: var(--green);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .room-map {
+            position: relative;
+            min-height: 360px;
+            padding: 22px;
+            background:
+                linear-gradient(135deg, rgba(36, 122, 82, 0.12), rgba(47, 95, 143, 0.12)),
+                repeating-linear-gradient(90deg, rgba(36, 122, 82, 0.34) 0 16px, transparent 16px 22px),
+                repeating-linear-gradient(0deg, rgba(36, 122, 82, 0.34) 0 16px, transparent 16px 22px);
+            background-size: auto, 22px 22px, 22px 22px;
+        }
+
+        .receipt {
+            position: absolute;
+            inset: auto 22px 22px 22px;
+            padding: 18px;
+            border: 1px solid rgba(255, 250, 242, 0.42);
+            border-radius: 8px;
+            color: #fffaf2;
+            background: rgba(23, 23, 23, 0.88);
+            box-shadow: 0 18px 48px rgba(23, 23, 23, 0.28);
+            overflow-x: auto;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        }
+
+        .receipt pre {
+            margin: 0;
+            min-width: 620px;
+            white-space: pre;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .section {
+            padding: 54px 0;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 28px;
+        }
+
+        .metric {
+            padding: 20px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(255, 250, 242, 0.82);
+        }
+
+        .metric strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: clamp(28px, 5vw, 44px);
+            line-height: 1;
+        }
+
+        .metric span {
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .split {
+            display: grid;
+            grid-template-columns: minmax(0, 0.9fr) minmax(340px, 1fr);
+            gap: 22px;
+            align-items: start;
+        }
+
+        .story {
+            padding: 24px;
+            border-radius: 8px;
+            background: rgba(255, 250, 242, 0.72);
+            border: 1px solid var(--line);
+            min-width: 0;
+        }
+
+        .story p {
+            color: var(--muted);
+        }
+
+        .line-card {
+            padding: 18px;
+            border-radius: 8px;
+            background: #171717;
+            color: #fffaf2;
+            min-width: 0;
+        }
+
+        .line-card.danger {
+            background: #2a1716;
+        }
+
+        .line-card.success {
+            background: #10221a;
+        }
+
+        .line-card pre {
+            margin: 0;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .checklist {
+            display: grid;
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .check {
+            display: grid;
+            grid-template-columns: 34px 1fr;
+            gap: 12px;
+            align-items: start;
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            background: rgba(255, 250, 242, 0.76);
+        }
+
+        .check-icon {
+            display: grid;
+            place-items: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            color: #fffaf2;
+            background: var(--green);
+            font-weight: 800;
+        }
+
+        .command {
+            padding: 20px;
+            border-radius: 8px;
+            background: #171717;
+            color: #fffaf2;
+            overflow-x: auto;
+        }
+
+        .command pre {
+            margin: 0;
+            min-width: 680px;
+            white-space: pre;
+            font-size: 13px;
+            line-height: 1.65;
+        }
+
+        .boundary {
+            color: var(--muted);
+        }
+
+        footer {
+            margin-top: 42px;
+            padding: 32px 0;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .footer-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .hero-grid,
+            .split {
+                grid-template-columns: 1fr;
+            }
+
+            .metric-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 620px) {
+            .nav {
+                align-items: flex-start;
+                flex-direction: column;
+                padding: 14px 0;
+            }
+
+            .hero {
+                padding-top: 46px;
+            }
+
+            .metric-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .room-map {
+                min-height: 420px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <nav class="wrap nav" aria-label="Holiday Rush navigation">
+            <a class="brand" href="index.html">
+                <span class="brand-mark">MK</span>
+                <span>k-lani</span>
+            </a>
+            <div class="links">
+                <a href="index.html#benchmark">Ticket proof</a>
+                <a href="index.html#holiday-rush">Landing block</a>
+                <a href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">GitHub</a>
+                <a href="https://ko-fi.com/mkalani" target="_blank" rel="noreferrer">Ko-fi</a>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="wrap hero-grid">
+                <div>
+                    <span class="kicker">Holiday Rush proof</span>
+                    <h1>1,000 rooms. 1,000 booking sessions. 0 failed sessions.</h1>
+                    <p class="lead">This is the travel inventory version of the same hard problem: many concurrent sessions fighting over a tiny hot set. k-lani books every eligible room once, then verifies the persisted table state.</p>
+                    <div class="actions">
+                        <a class="button primary" href="https://github.com/MarvKalani/k-lani-demo/blob/main/reports/holiday-rush-smoke-2026-05-30.md" target="_blank" rel="noreferrer">Read raw report</a>
+                        <a class="button" href="#reproduce">Reproduce</a>
+                    </div>
+                </div>
+
+                <aside class="panel inventory-panel" aria-label="Holiday Rush invariant receipt">
+                    <div class="panel-head">
+                        <strong>holiday_rooms</strong>
+                        <span class="pill">verified</span>
+                    </div>
+                    <div class="room-map">
+                        <div class="receipt mono">
+                            <pre>holiday_init_ok table=holiday_rooms rooms=1000
+holiday_fixture_loaded rooms=1000
+holiday_rush_done sessions=1000 rooms=1000 booked=1000 verified_booked=1000 read_queries=1000 lock_conflicts=73 already_booked=98 failed_sessions=0 wall_secs=6.406</pre>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="wrap">
+                <span class="kicker">Measured smoke</span>
+                <h2>The invariant is the ad.</h2>
+                <p class="lead">Every session had one matching room available at the start. The benchmark still had to survive stale candidates and lock contention, then prove the final count from persisted rows.</p>
+                <div class="metric-grid">
+                    <div class="metric">
+                        <strong class="mono">1,000</strong>
+                        <span>booking sessions</span>
+                    </div>
+                    <div class="metric">
+                        <strong class="mono">1,000</strong>
+                        <span>room rows</span>
+                    </div>
+                    <div class="metric">
+                        <strong class="mono">0</strong>
+                        <span>failed sessions</span>
+                    </div>
+                    <div class="metric">
+                        <strong class="mono">6.406s</strong>
+                        <span>booking phase</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="wrap split">
+                <div class="story">
+                    <span class="kicker">Bug fixed before publishing</span>
+                    <h2>We did not round this one away.</h2>
+                    <p>An earlier local 1,000 / 1,000 smoke failed at 919 bookings. That was not acceptable and it was not a probability story. The benchmark exposed a real secondary-index range bug.</p>
+                    <div class="checklist">
+                        <div class="check">
+                            <span class="check-icon">1</span>
+                            <div><strong>UInt32 range keys were corrected.</strong><br><span class="boundary">The old little-endian secondary key order made `price in [0, 1000)` match only 919 of 1,000 rows. Numeric range index keys now use ordered bytes.</span></div>
+                        </div>
+                        <div class="check">
+                            <span class="check-icon">2</span>
+                            <div><strong>Persisted index caches were invalidated.</strong><br><span class="boundary">The `.mksid` secondary-index cache version was bumped so old numeric-key files rebuild.</span></div>
+                        </div>
+                        <div class="check">
+                            <span class="check-icon">3</span>
+                            <div><strong>The booking loop re-queries stale windows.</strong><br><span class="boundary">A session no longer fails just because its current 32-candidate window was exhausted by other workers.</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="story">
+                    <h3>Before fix</h3>
+                    <div class="line-card danger mono">
+                        <pre>holiday_rush_done sessions=1000 rooms=1000 booked=919 verified_booked=919 read_queries=1000 lock_conflicts=106 already_booked=93 failed_sessions=81 wall_secs=5.007</pre>
+                    </div>
+                    <h3 style="margin-top: 22px;">After fix</h3>
+                    <div class="line-card success mono">
+                        <pre>holiday_rush_done sessions=1000 rooms=1000 booked=1000 verified_booked=1000 read_queries=1000 lock_conflicts=73 already_booked=98 failed_sessions=0 wall_secs=6.406</pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="reproduce" class="section">
+            <div class="wrap split">
+                <div>
+                    <span class="kicker">Reproduce</span>
+                    <h2>Runs from the public preview bundle.</h2>
+                    <p class="lead">The GitHub preview repo ships the `real_world_booking_bench` binary and a `holiday` demo mode. The container writes the raw benchmark log into `/reports/holiday-rush.raw.log`.</p>
+                </div>
+                <div class="command mono">
+                    <pre>docker build -t k-lani-demo:preview .
+docker run --rm \
+  -e K_LANI_DEMO_MODE=holiday \
+  -e K_LANI_HOLIDAY_HOTELS=20 \
+  -e K_LANI_HOLIDAY_ROOMS_PER_HOTEL=50 \
+  -e K_LANI_HOLIDAY_SESSIONS=1000 \
+  -e K_LANI_HOLIDAY_WORKERS=16 \
+  k-lani-demo:preview</pre>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="wrap story">
+                <span class="kicker">Boundary</span>
+                <h2>Honest scope.</h2>
+                <p class="boundary">This is a local TCP smoke over k-lani's room table, lock path, indexed predicate lookup, replace path, and persisted recount. It is not a payment benchmark, browser checkout benchmark, or full travel marketplace stack. The point is narrower and sharper: under tight hot-inventory contention, the engine either books exactly once per row or the run fails.</p>
+                <div class="actions">
+                    <a class="button primary" href="index.html">Back to landing page</a>
+                    <a class="button" href="https://github.com/MarvKalani/k-lani-demo/blob/main/BENCHMARKS.md" target="_blank" rel="noreferrer">BENCHMARKS.md</a>
+                    <a class="button" href="//demo.k-lani.com">Ticket horde</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="wrap footer-row">
+            <span>k-lani Holiday Rush proof</span>
+            <div class="footer-links">
+                <a href="index.html">Landing</a>
+                <a href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">GitHub</a>
+                <a href="https://ko-fi.com/mkalani" target="_blank" rel="noreferrer">Ko-fi</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

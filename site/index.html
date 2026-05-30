@@ -1357,6 +1357,7 @@
 
                 <div class="nav-links">
                     <a class="nav-link" href="#benchmark">Benchmark</a>
+                    <a class="nav-link" href="#holiday-rush">Holiday Rush</a>
                     <a class="nav-link" href="#proof">Proof</a>
                     <a class="nav-link" href="#architecture">Architecture</a>
                     <a class="nav-link" href="#integrate">Integrate</a>
@@ -1430,8 +1431,8 @@
 
             <section class="marquee-band" aria-label="reference metrics marquee">
                 <div class="marquee-track">
-                    <span class="marquee">0 double-spends <span class="sep">*</span> 10,633 peak qps <span class="sep">*</span> mmap-backed reads <span class="sep">*</span> WORM-first writes <span class="sep">*</span> 5.326s sellout <span class="sep">*</span> 2 vCPU / 4 GB RAM <span class="sep">*</span> 128 workers <span class="sep">*</span> 32.26 us server read p50 <span class="sep">*</span></span>
-                    <span class="marquee">0 double-spends <span class="sep">*</span> 10,633 peak qps <span class="sep">*</span> mmap-backed reads <span class="sep">*</span> WORM-first writes <span class="sep">*</span> 5.326s sellout <span class="sep">*</span> 2 vCPU / 4 GB RAM <span class="sep">*</span> 128 workers <span class="sep">*</span> 32.26 us server read p50 <span class="sep">*</span></span>
+                    <span class="marquee">0 double-spends <span class="sep">*</span> 10,633 peak qps <span class="sep">*</span> 1,000/1,000 Holiday Rush rooms <span class="sep">*</span> mmap-backed reads <span class="sep">*</span> WORM-first writes <span class="sep">*</span> 5.326s sellout <span class="sep">*</span> 2 vCPU / 4 GB RAM <span class="sep">*</span> 128 workers <span class="sep">*</span> 32.26 us server read p50 <span class="sep">*</span></span>
+                    <span class="marquee">0 double-spends <span class="sep">*</span> 10,633 peak qps <span class="sep">*</span> 1,000/1,000 Holiday Rush rooms <span class="sep">*</span> mmap-backed reads <span class="sep">*</span> WORM-first writes <span class="sep">*</span> 5.326s sellout <span class="sep">*</span> 2 vCPU / 4 GB RAM <span class="sep">*</span> 128 workers <span class="sep">*</span> 32.26 us server read p50 <span class="sep">*</span></span>
                 </div>
             </section>
 
@@ -1523,9 +1524,72 @@
                 </div>
             </section>
 
+            <section id="holiday-rush" class="section" data-reveal>
+                <div class="wrap section-grid">
+                    <div>
+                        <span class="kicker">02 / Travel inventory</span>
+                        <h2 class="section-title">Holiday Rush<br>booking proof</h2>
+                        <p class="section-copy">The travel-room smoke is deliberately tight: 1,000 booking sessions compete for exactly 1,000 room rows through the same TCP server path. The final persisted recount is <strong>1,000 / 1,000</strong>, with <strong>0 failed sessions</strong> and no oversell.</p>
+                        <div class="hero-actions">
+                            <a class="button primary" href="holiday-rush.html">Open Holiday Rush proof</a>
+                            <a class="button" href="https://github.com/MarvKalani/k-lani-demo/blob/main/reports/holiday-rush-smoke-2026-05-30.md" target="_blank" rel="noreferrer">Read report</a>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <article class="stat-card large">
+                            <p class="metric-label">Holiday Rush</p>
+                            <p class="metric-subtle">20 hotels / 50 rooms each / 16 workers</p>
+                            <div class="progress-stack">
+                                <div>
+                                    <div class="progress-label"><span>Booking sessions</span><strong class="mono">1,000</strong></div>
+                                    <div class="bar"><div class="bar-fill" style="width:100%"></div></div>
+                                </div>
+                                <div>
+                                    <div class="progress-label"><span>Rooms booked</span><strong class="mono metric-highlight">1,000 / 1,000</strong></div>
+                                    <div class="bar"><div class="bar-fill green" style="width:100%"></div></div>
+                                </div>
+                                <div>
+                                    <div class="progress-label"><span>Failed sessions</span><strong class="mono metric-highlight">0</strong></div>
+                                    <div class="bar"><div class="bar-fill zero" style="width:0%"></div></div>
+                                </div>
+                            </div>
+                        </article>
+
+                        <article class="stat-card">
+                            <p class="metric-label">Result</p>
+                            <span class="metric-value mono">1000<span class="metric-highlight">/1000</span></span>
+                            <p class="metric-subtle">booked and re-verified from persisted room rows</p>
+                            <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(52, 52, 52, 0.45);">
+                                <span class="metric-value small mono metric-highlight">6.406s</span>
+                                <p class="metric-subtle">measured booking phase</p>
+                            </div>
+                        </article>
+
+                        <article class="stat-card">
+                            <p class="metric-label">Contention observed</p>
+                            <div class="metric-row">
+                                <span class="metric-icon">L</span>
+                                <div>
+                                    <span class="metric-value small mono">73</span>
+                                    <p class="metric-subtle">lock conflicts</p>
+                                </div>
+                            </div>
+                            <div class="metric-row">
+                                <span class="metric-icon">S</span>
+                                <div>
+                                    <span class="metric-value small mono">98</span>
+                                    <p class="metric-subtle">stale candidates retried</p>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
             <section id="proof" class="section" data-reveal>
                 <div class="wrap">
-                    <span class="kicker">02 / Proof points</span>
+                    <span class="kicker">03 / Proof points</span>
                     <h2 class="section-title">What this published<br>run proves</h2>
 
                     <div class="proof-grid" style="margin-top: 42px;">
@@ -1572,7 +1636,7 @@
                     </div>
 
                     <div>
-                        <span class="kicker">03 / Architecture</span>
+                        <span class="kicker">04 / Architecture</span>
                         <h2 class="section-title">Mechanical<br>integrity</h2>
                         <p class="section-copy architecture-copy">The engine is not relying on theatrical benchmarking. Every visible claim on this landing page maps to a mechanical property of the system and to a published artifact: mmap-backed reads, WORM-first writes, lock-free snapshots, and explicit correctness recount after the storm.</p>
 
@@ -1633,9 +1697,9 @@ after the storm:
 
             <section id="integrate" class="section" data-reveal>
                 <div class="wrap">
-                    <span class="kicker">04 / Integrate today</span>
+                    <span class="kicker">05 / Integrate today</span>
                     <h2 class="section-title">Native use,<br>honest entry points</h2>
-                    <p class="section-copy">The public GitHub repo now has the real starter guide: how to create the first table, which field types exist, how values are written, which errors come back, and how SQL-shaped thinking maps onto k-lani's explicit query commands. This page stays short; the working details live in the repo.</p>
+                    <p class="section-copy">The public GitHub repo now has the real starter guide: how to create the first table, which field types exist, how values are written, which errors come back, and how k-lani's explicit query commands work. This page stays short; the working details live in the repo.</p>
 
                     <div class="hero-actions">
                         <a class="button primary" href="https://github.com/MarvKalani/k-lani-demo/blob/main/GETTING_STARTED.md" target="_blank" rel="noreferrer">Read getting started</a>
@@ -1666,7 +1730,7 @@ after the storm:
                     </div>
 
                     <div class="guide-note">
-                        <p>Start here: <a href="https://github.com/MarvKalani/k-lani-demo/blob/main/GETTING_STARTED.md" target="_blank" rel="noreferrer"><strong>GETTING_STARTED.md</strong></a>. It covers the first-table YAML, supported field types, Rust value writes, lock/commit updates, server commands, common error codes, and SQL-to-k-lani query mapping.</p>
+                        <p>Start here: <a href="https://github.com/MarvKalani/k-lani-demo/blob/main/GETTING_STARTED.md" target="_blank" rel="noreferrer"><strong>GETTING_STARTED.md</strong></a>. It covers the first-table YAML, supported field types, Rust value writes, lock/commit updates, server commands, common error codes, and explicit query commands.</p>
                     </div>
                 </div>
             </section>
@@ -1674,7 +1738,7 @@ after the storm:
             <section id="routes" class="section" data-reveal>
                 <div class="wrap section-grid">
                     <div>
-                        <span class="kicker">05 / Public routes</span>
+                        <span class="kicker">06 / Public routes</span>
                         <h2 class="section-title">Endpoints</h2>
                         <p class="section-copy">The owner command channel stays private until signed capability tokens, replay protection, rate limits, and audit are complete. Cloudflare can proxy the HTTP pages; direct UDP/WebTransport still needs a DNS-only route or a private tunnel.</p>
                     </div>
@@ -1713,6 +1777,21 @@ after the storm:
                                 <div class="route-right">
                                     <span class="route-tag">HTTP</span>
                                     <span class="route-arrow">-></span>
+                                </div>
+                            </a>
+
+                            <a class="route-row" href="holiday-rush.html">
+                                <div class="route-left">
+                                    <span class="route-icon">H</span>
+                                    <div class="route-copy">
+                                        <h3>Holiday Rush proof</h3>
+                                        <p>Travel-room booking smoke: 1,000 sessions, 1,000 rooms, persisted recount.</p>
+                                    </div>
+                                </div>
+                                <div class="route-right">
+                                    <span class="route-tag">HTTP</span>
+                                    <span class="route-tag highlight">Report</span>
+                                    <span class="route-arrow">-&gt;</span>
                                 </div>
                             </a>
 
@@ -1760,9 +1839,10 @@ after the storm:
                     <div class="cta-card">
                         <div class="cta-mark"><img src="logo.webp" alt="k-lani logo"></div>
                         <h2 class="cta-title">The claim is<br>mechanical.</h2>
-                        <p class="cta-copy">Not theatrical. mmap-backed reads, WORM-first writes, and contention that fails fast. 10,000 tickets sold, zero double-spends, on 2 vCPUs and 4 GB RAM.</p>
+                        <p class="cta-copy">Not theatrical. mmap-backed reads, WORM-first writes, and contention that fails fast. 10,000 tickets sold without double-spends, plus 1,000 Holiday Rush rooms booked and re-verified.</p>
                         <div class="cta-actions">
                             <a class="button primary" href="//demo.k-lani.com">Open ticket horde</a>
+                            <a class="button" href="holiday-rush.html">Open Holiday Rush proof</a>
                             <a class="button" href="//hft.k-lani.com">Open HFT workstation</a>
                             <a class="button" href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">Open GitHub repo</a>
                         </div>
@@ -1788,6 +1868,7 @@ after the storm:
                         <h3>Routes</h3>
                         <div class="footer-links">
                             <a href="/">k-lani.com</a>
+                            <a href="holiday-rush.html">Holiday Rush proof</a>
                             <a href="//demo.k-lani.com">demo.k-lani.com</a>
                             <a href="//hft.k-lani.com">hft.k-lani.com</a>
                         </div>
@@ -1808,6 +1889,7 @@ after the storm:
                             <a href="https://ko-fi.com/mkalani" target="_blank" rel="noreferrer">Support on Ko-fi</a>
                             <a href="https://github.com/MarvKalani/k-lani-demo" target="_blank" rel="noreferrer">GitHub preview repo</a>
                             <a href="https://github.com/MarvKalani/k-lani-demo/blob/main/BENCHMARKS.md" target="_blank" rel="noreferrer">BENCHMARKS.md</a>
+                            <a href="https://github.com/MarvKalani/k-lani-demo/blob/main/reports/holiday-rush-smoke-2026-05-30.md" target="_blank" rel="noreferrer">Holiday Rush report</a>
                             <a href="//demo.k-lani.com/ticket-demo.raw.log">ticket-demo.raw.log</a>
                             <a href="//demo.k-lani.com/host.txt">host.txt</a>
                         </div>

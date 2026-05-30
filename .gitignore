@@ -2,6 +2,7 @@ bin/*
 !bin/k-lani-server
 !bin/k-lani-quic-server
 !bin/thundering_herd_concert_bench
+!bin/real_world_booking_bench
 !bin/trading_workstation
 hft-data/*
 reports/*

@@ -108,13 +108,33 @@ Bundled evidence in this repo:
 
 - `reports/client-server-comparative-release-2026-05-29.md`
 - `reports/embedded-core-comparative-release-2026-04-29.md`
+- `reports/holiday-rush-smoke-2026-05-30.md`
 - `reports/benchmark-host-2026-05-29.md`
 - `reports/SHA256SUMS.txt`
 
 For the exact local commands, container limits, runtime scripts, and the
 published benchmark scope, see [BENCHMARKS.md](BENCHMARKS.md).
 
-## 3. Run the Demo Locally
+## 3. Holiday Rush Travel Smoke
+
+The preview bundle also includes the `real_world_booking_bench` binary and a
+`holiday` demo mode. The smoke run books exactly 1,000 rooms with exactly 1,000
+booking sessions through the TCP server path, then recounts persisted rows.
+
+```bash
+docker build -t k-lani-demo:preview .
+docker run --rm \
+  -e K_LANI_DEMO_MODE=holiday \
+  -e K_LANI_HOLIDAY_HOTELS=20 \
+  -e K_LANI_HOLIDAY_ROOMS_PER_HOTEL=50 \
+  -e K_LANI_HOLIDAY_SESSIONS=1000 \
+  -e K_LANI_HOLIDAY_WORKERS=16 \
+  k-lani-demo:preview
+```
+
+Report: [reports/holiday-rush-smoke-2026-05-30.md](reports/holiday-rush-smoke-2026-05-30.md).
+
+## 4. Run the Demo Locally
 
 Requirements:
 
@@ -169,14 +189,14 @@ docker run --rm \
   k-lani-demo:preview
 ```
 
-## 4. What Is In This Repo
+## 5. What Is In This Repo
 
 - `GETTING_STARTED.md` explains the first-table workflow, supported field
-  types, language entry points, SQL-to-k-lani query shapes, and common errors.
+  types, language entry points, k-lani query shapes, and common errors.
 - `LICENSE.md` contains the full legal license for the redistributed preview
   bundle and k-lani work.
 - `SYMBIOSIS.md` contains the non-legal contribution pact for agents and humans.
-- `bin/` contains only the four runtime binaries needed for the public demo
+- `bin/` contains only the five runtime binaries needed for the public demo
   modes.
 - `docker-compose.yml` starts the local landing, horde, and HFT preview stack.
 - `reports/` contains the comparative benchmark reports and `SHA256SUMS.txt`.
@@ -192,7 +212,7 @@ What is not in this repo:
 - seeded HFT demo payloads
 - pitch drafts or maintainer-only handoff notes
 
-## 5. Notes and Limits
+## 6. Notes and Limits
 
 - The HFT workstation is experimental and intentionally capped to 10 MB of demo
   data.
