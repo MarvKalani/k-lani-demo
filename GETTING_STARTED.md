@@ -437,6 +437,17 @@ it intends to carry, source fields inherit their real storage shape dynamically,
 and derived fields declare their output type. A schema change then fails loudly
 or widens the cursor correctly instead of becoming a late UI/data corruption bug.
 
+The full workspace has this as running Rust code now:
+
+```bash
+cargo +stable test -p k-lani-core --test cursor_shape
+cargo +stable run -p k-lani-core --example schema_derived_cursor_shape
+```
+
+The example resolves `customers.name` and `invoices.invoice_no`, then resolves
+the same cursor shape again after `customers.name` widens from 80 to 100 bytes.
+The cursor shape follows the source schema width.
+
 ### The same shape in k-lani primitives
 
 k-lani makes each hidden FoxPro state transition explicit:
